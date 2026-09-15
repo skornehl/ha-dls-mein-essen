@@ -1,0 +1,15 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "data": {
+          "customer_number": "Kundennummer",
+          "password": "Passwort"
+        }
+      }
+    },
+    "abort": {
+      "not_implemented": "Diese Integration ist noch nicht fertig - die Anbindung ans DLS-Portal fehlt noch."
+    }
+  }
+}

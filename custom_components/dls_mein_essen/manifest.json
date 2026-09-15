@@ -1,0 +1,12 @@
+{
+  "domain": "dls_mein_essen",
+  "name": "DLS Mein Essen",
+  "codeowners": ["@skornehl"],
+  "config_flow": true,
+  "documentation": "https://github.com/skornehl/ha-dls-mein-essen",
+  "integration_type": "hub",
+  "iot_class": "cloud_polling",
+  "issue_tracker": "https://github.com/skornehl/ha-dls-mein-essen/issues",
+  "requirements": [],
+  "version": "0.1.0"
+}
