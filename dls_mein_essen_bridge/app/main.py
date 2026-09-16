@@ -143,22 +143,20 @@ class Bridge:
            page (see README's "first boot" note) since exact coordinates
            depend on the actual rendered layout.
         """
-        try:
-            nav_login = page.get_by_text(re.compile(r"^(Login|Anmelden)$", re.I)).first
-            await nav_login.click(timeout=5000)
-            await page.wait_for_timeout(1500)
-        except Exception as err:
-            _LOGGER.info(
-                "get_by_text couldn't find 'Login' (%s) - Flutter's CanvasKit renderer "
-                "usually has no real text nodes to find, falling back to a coordinate "
-                "click on the sidebar's top nav item",
-                err,
-            )
-            try:
-                await page.mouse.click(100, 114)
-                await page.wait_for_timeout(1500)
-            except Exception:
-                _LOGGER.exception("Coordinate click on the Login nav item also failed")
+        # Sidebar "Login" nav item - just gets to a "Profiles" screen, not
+        # a form (see below), but does need clicking first.
+        await self._click_text_or_coords(page, r"^(Login|Anmelden)$", (100, 114), "Login nav item")
+
+        # The "Profiles" screen's "Benutzer hinzufügen"/"Add user" tile
+        # ("Login mit Kundennummer und Passwort") is what actually gets to
+        # the two-field form - confirmed via a debug screenshot, this
+        # portal's login is a two-step navigation, not a direct form.
+        await self._click_text_or_coords(
+            page,
+            r"Benutzer hinzuf.gen|Add user",
+            (740, 756),
+            "'Benutzer hinzufügen' tile",
+        )
 
         # Always capture what the form actually looks like right before
         # attempting to fill it in - purely for calibrating the
@@ -205,6 +203,26 @@ class Bridge:
         except Exception:
             _LOGGER.exception("Coordinate fallback also failed")
             return False
+
+    async def _click_text_or_coords(
+        self, page: Page, pattern: str, coords: tuple[int, int], description: str
+    ) -> None:
+        """Try to click something by its (semantic) text first, fall back
+        to a raw coordinate click - Flutter's CanvasKit renderer draws to
+        a <canvas>, so there's usually no real text node for
+        get_by_text/get_by_role to find, but it's cheap insurance in case
+        a given screen genuinely does expose one."""
+        try:
+            await page.get_by_text(re.compile(pattern, re.I)).first.click(timeout=5000)
+            _LOGGER.info("Clicked %s via text selector", description)
+        except Exception as err:
+            _LOGGER.info("Text selector for %s failed (%s), using coordinates", description, err)
+            try:
+                await page.mouse.click(*coords)
+                _LOGGER.info("Clicked %s via coordinates %s", description, coords)
+            except Exception:
+                _LOGGER.exception("Coordinate click for %s also failed", description)
+        await page.wait_for_timeout(1500)
 
     async def _save_debug_screenshot(self, page: Page, reason: str) -> None:
         try:
