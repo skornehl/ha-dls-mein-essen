@@ -180,10 +180,20 @@ class Bridge:
             )
             await number_field.click(timeout=5000)
             await page.keyboard.type(self.customer_number, delay=30)
+            await self._debug_screenshot(page, "step3_after_number_typed")
 
+            # The real portal aborted with "Authentication Failed" last
+            # time despite this whole block reporting success - the
+            # customer-number tile then showed up as a saved profile
+            # afterwards, suggesting this might actually be a two-step
+            # wizard (number, THEN a separately-appearing password field)
+            # rather than one combined form, and the "password field"
+            # locator below matched something else entirely. Screenshot
+            # here too so that's visible either way.
             password_field = page.get_by_role("textbox", name=re.compile("Passwort|Password", re.I))
             await password_field.click(timeout=5000)
             await page.keyboard.type(self.password, delay=30)
+            await self._debug_screenshot(page, "step4_after_password_typed")
 
             login_button = page.get_by_role(
                 "button", name=re.compile("Anmelden|Einloggen|Login|Log ?in|Sign ?in", re.I)
