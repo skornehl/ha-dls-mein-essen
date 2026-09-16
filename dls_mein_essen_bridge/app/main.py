@@ -61,7 +61,11 @@ class Bridge:
     async def start(self) -> None:
         self._playwright = await async_playwright().start()
         self._browser = await self._playwright.chromium.launch(headless=True)
-        self._context = await self._browser.new_context(viewport={"width": 1280, "height": 900})
+        self._context = await self._browser.new_context(
+            viewport={"width": 1280, "height": 900},
+            locale="de-DE",
+            extra_http_headers={"Accept-Language": "de-DE,de;q=0.9"},
+        )
         self.page = await self._context.new_page()
         await self.page.add_init_script(WAMP_HOOK_JS)
         asyncio.create_task(self._watchdog())
@@ -118,7 +122,17 @@ class Bridge:
             return False
 
     async def _fill_login_form(self, page: Page) -> bool:
-        """Two strategies, in order:
+        """Navigating straight to #/login lands on a "Profiles" screen
+        with a sidebar, not a login form directly - there's a "Login" nav
+        item (or an "Add user" tile, description: "Use your customer
+        number and password") that actually gets to the two-field form.
+        Bilingual matching throughout since the app renders in whatever
+        the browser context's locale/Accept-Language implies (we set
+        de-DE in start(), but matching both is cheap insurance against
+        the app not honoring it for some reason - it clearly didn't
+        before that was added, see the first debug screenshot).
+
+        Two strategies, in order:
 
         1. Accessibility/semantic selectors - Flutter web exposes a
            semantics tree for screen readers that Playwright's role-based
@@ -130,15 +144,26 @@ class Bridge:
            depend on the actual rendered layout.
         """
         try:
-            number_field = page.get_by_role("textbox", name=re.compile("Kundennummer", re.I))
+            nav_login = page.get_by_text(re.compile(r"^(Login|Anmelden)$", re.I)).first
+            await nav_login.click(timeout=5000)
+            await page.wait_for_timeout(1500)
+        except Exception as err:
+            _LOGGER.info("No separate 'Login' nav item to click (%s) - already on the form?", err)
+
+        try:
+            number_field = page.get_by_role(
+                "textbox", name=re.compile("Kundennummer|Customer number", re.I)
+            )
             await number_field.click(timeout=5000)
             await page.keyboard.type(self.customer_number, delay=30)
 
-            password_field = page.get_by_role("textbox", name=re.compile("Passwort", re.I))
+            password_field = page.get_by_role("textbox", name=re.compile("Passwort|Password", re.I))
             await password_field.click(timeout=5000)
             await page.keyboard.type(self.password, delay=30)
 
-            login_button = page.get_by_role("button", name=re.compile("Anmelden|Login|Einloggen", re.I))
+            login_button = page.get_by_role(
+                "button", name=re.compile("Anmelden|Einloggen|Login|Log ?in|Sign ?in", re.I)
+            )
             await login_button.click(timeout=5000)
             _LOGGER.info("Filled login form via semantic selectors")
             return True
