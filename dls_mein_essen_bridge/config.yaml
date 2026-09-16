@@ -1,5 +1,5 @@
 name: "DLS Mein Essen Bridge"
-version: "0.1.11"
+version: "0.1.12"
 slug: "dls_mein_essen_bridge"
 description: >-
   Runs a real (headless) browser logged into the DLS "Mein Essen" portal and

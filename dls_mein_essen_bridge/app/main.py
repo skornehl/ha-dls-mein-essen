@@ -196,26 +196,44 @@ class Bridge:
                 entered_number == self.customer_number,
             )
 
-            # The diagnostic logging above caught this: the previous
-            # get_by_role("textbox", name=~"Passwort") locator resolved
-            # to *something* (fill() didn't error) but left the field
-            # empty - almost certainly matched a decoy, e.g. the
-            # "Passwort merken (bis Logout)" checkbox's label rather than
-            # the actual input. Tab from the number field (whose fill we
-            # already confirmed lands correctly) instead of searching
-            # again - matches normal form flow and sidesteps the ambiguous
-            # role match entirely.
-            await page.keyboard.press("Tab")
-            password_field = page.locator(":focus")
+            # get_by_role("textbox", name=~"Passwort") resolves to
+            # *something* fillable without erroring but leaves the field
+            # empty - almost certainly a decoy, e.g. the "Passwort merken
+            # (bis Logout)" checkbox's label rather than the actual
+            # input. Tabbing from the number field turned out flaky too
+            # (focus sometimes lands on <flutter-view> itself, not an
+            # input - a timing thing). Positional selection instead: the
+            # second textbox-role element on the page, confirmed via the
+            # debug screenshots this dialog's only two textboxes are
+            # Kundennummer (first) and Passwort/Pin (second), in that
+            # order - deterministic regardless of focus timing.
+            password_field = page.get_by_role("textbox").nth(1)
             await password_field.fill(self.password)
-            await self._debug_screenshot(page, "step4_after_password_typed")
             entered_password = await password_field.input_value()
+            if entered_password != self.password:
+                _LOGGER.warning(
+                    "Positional password fill left wrong content (len %d, expected %d) - "
+                    "trying Tab-from-number-field instead",
+                    len(entered_password),
+                    len(self.password),
+                )
+                await page.keyboard.press("Tab")
+                password_field = page.locator(":focus")
+                await password_field.fill(self.password)
+                entered_password = await password_field.input_value()
+            await self._debug_screenshot(page, "step4_after_password_typed")
             _LOGGER.info(
                 "Passwort field now has length %d (expected %d, match=%s)",
                 len(entered_password),
                 len(self.password),
                 entered_password == self.password,
             )
+            if entered_password != self.password:
+                # Don't click LOGIN with a known-wrong password - that's
+                # a real failed attempt against the real account for
+                # nothing. Let this whole block fail so the coordinate
+                # fallback (or the next retry cycle) takes over instead.
+                raise RuntimeError("Could not get the password into the Passwort field")
 
             login_button = page.get_by_role(
                 "button", name=re.compile("Anmelden|Einloggen|Login|Log ?in|Sign ?in", re.I)
