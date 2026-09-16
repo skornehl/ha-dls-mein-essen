@@ -245,15 +245,14 @@ class Bridge:
             _LOGGER.warning("Semantic selectors failed (%s), trying coordinate fallback", err)
 
         try:
-            # Best-effort default layout guess for a 1280x900 viewport -
-            # a centered login card with two stacked fields. Almost
-            # certainly needs adjusting once we see the real page (see
-            # README) - that's expected, not a sign something's broken.
-            await page.mouse.click(640, 380)
+            # Calibrated against the real "Benutzer hinzufügen" dialog on
+            # a 1280x900 viewport (see debug screenshots) - Kundennummer,
+            # then Passwort/Pin directly below it, then the LOGIN button.
+            await page.mouse.click(628, 401)
             await page.keyboard.type(self.customer_number, delay=30)
-            await page.keyboard.press("Tab")
+            await page.mouse.click(628, 441)
             await page.keyboard.type(self.password, delay=30)
-            await page.keyboard.press("Enter")
+            await page.mouse.click(828, 569)
             _LOGGER.info("Filled login form via coordinate fallback")
             return True
         except Exception:
