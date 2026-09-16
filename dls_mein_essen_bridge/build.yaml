@@ -1,0 +1,3 @@
+build_from:
+  amd64: "mcr.microsoft.com/playwright/python:v1.48.0-jammy"
+  aarch64: "mcr.microsoft.com/playwright/python:v1.48.0-jammy"

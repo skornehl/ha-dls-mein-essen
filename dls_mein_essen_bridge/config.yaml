@@ -1,0 +1,31 @@
+name: "DLS Mein Essen Bridge"
+version: "0.1.0"
+slug: "dls_mein_essen_bridge"
+description: >-
+  Runs a real (headless) browser logged into the DLS "Mein Essen" portal and
+  exposes its authenticated WAMP session as a small local HTTP API - the
+  portal's WAMP-CRA login signature couldn't be reproduced outside a real
+  browser, so the browser does the login and this add-on just proxies calls
+  over the already-authenticated WebSocket. Used by the dls_mein_essen HA
+  integration, not meant to be used standalone.
+url: "https://github.com/skornehl/ha-dls-mein-essen"
+arch:
+  - amd64
+  - aarch64
+init: false
+startup: application
+boot: auto
+ports:
+  8099/tcp: 8099
+ports_description:
+  8099/tcp: "Local HTTP API for the dls_mein_essen integration"
+options:
+  customer_number: ""
+  password: ""
+  log_level: "info"
+schema:
+  customer_number: str
+  password: password
+  log_level: list(debug|info|warning|error)
+map:
+  - addon_config:rw

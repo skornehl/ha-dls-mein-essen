@@ -3,13 +3,36 @@
     "step": {
       "user": {
         "data": {
-          "customer_number": "Customer number",
-          "password": "Password"
+          "bridge_url": "Bridge add-on URL"
         }
       }
     },
+    "error": {
+      "cannot_connect": "Could not reach the bridge add-on",
+      "unknown": "Unexpected error"
+    },
     "abort": {
-      "not_implemented": "This integration is not finished yet - the DLS portal connection is still missing."
+      "already_configured": "This bridge is already configured"
+    }
+  },
+  "entity": {
+    "button": {
+      "refresh": {
+        "name": "Refresh"
+      }
+    },
+    "calendar": {
+      "plan": {
+        "name": "Meal plan"
+      }
+    },
+    "sensor": {
+      "today": {
+        "name": "Today"
+      },
+      "tomorrow": {
+        "name": "Tomorrow"
+      }
     }
   }
 }
