@@ -148,7 +148,27 @@ class Bridge:
             await nav_login.click(timeout=5000)
             await page.wait_for_timeout(1500)
         except Exception as err:
-            _LOGGER.info("No separate 'Login' nav item to click (%s) - already on the form?", err)
+            _LOGGER.info(
+                "get_by_text couldn't find 'Login' (%s) - Flutter's CanvasKit renderer "
+                "usually has no real text nodes to find, falling back to a coordinate "
+                "click on the sidebar's top nav item",
+                err,
+            )
+            try:
+                await page.mouse.click(100, 114)
+                await page.wait_for_timeout(1500)
+            except Exception:
+                _LOGGER.exception("Coordinate click on the Login nav item also failed")
+
+        # Always capture what the form actually looks like right before
+        # attempting to fill it in - purely for calibrating the
+        # coordinate fallback below across iterations, regardless of
+        # whether this attempt ultimately succeeds.
+        try:
+            os.makedirs("/config", exist_ok=True)
+            await page.screenshot(path="/config/dls_form_debug.png")
+        except Exception:
+            _LOGGER.exception("Could not save pre-fill debug screenshot")
 
         try:
             number_field = page.get_by_role(
