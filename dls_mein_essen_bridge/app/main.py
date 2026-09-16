@@ -290,7 +290,14 @@ async def on_startup() -> None:
     options = load_options()
     bridge = Bridge(options["customer_number"], options["password"])
     await bridge.start()
-    await bridge.login()
+    try:
+        await bridge.login()
+    except Exception:
+        # A transient failure here (seen once: net::ERR_NETWORK_CHANGED
+        # right after container start) must not crash FastAPI's startup
+        # and take the whole add-on down - the watchdog (already running,
+        # started inside bridge.start()) will retry on its own cycle.
+        _LOGGER.exception("Initial login attempt failed - the watchdog will retry")
 
 
 @app.get("/health")
