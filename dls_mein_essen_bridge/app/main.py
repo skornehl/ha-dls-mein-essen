@@ -148,6 +148,14 @@ class Bridge:
         await self._click_text_or_coords(page, r"^(Login|Anmelden)$", (100, 114), "Login nav item")
         await self._debug_screenshot(page, "step1_after_login_click")
 
+        # A "Wichtige Service-Information" maintenance-notice modal can
+        # cover the whole screen (confirmed via debug screenshot - the
+        # 'Benutzer hinzufügen' click below was silently swallowed by it).
+        # Harmless to attempt even when there's nothing to dismiss - the
+        # coordinate fallback just taps empty background in that case.
+        await self._click_text_or_coords(page, r"^OK$", (848, 583), "maintenance notice dismiss")
+        await self._debug_screenshot(page, "step1b_after_dismiss")
+
         # The "Profiles" screen's "Benutzer hinzufügen"/"Add user" tile
         # ("Login mit Kundennummer und Passwort") is what actually gets to
         # the two-field form - confirmed via a debug screenshot, this
