@@ -13,8 +13,6 @@ arch:
   - amd64
   - aarch64
 init: false
-startup: application
-boot: auto
 ports:
   8099/tcp: 8099
 ports_description:
