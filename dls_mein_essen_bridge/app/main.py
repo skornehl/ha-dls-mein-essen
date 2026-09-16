@@ -92,8 +92,25 @@ class Bridge:
         async with self._lock:
             page = self.page
             assert page is not None
+
+            # Confirmed live: after one login attempt, the app remembers
+            # the customer number as a "saved profile" (persisted in
+            # localStorage) and the "Benutzer hinzufügen" flow starts
+            # showing a DIFFERENT dialog on subsequent visits - which
+            # silently broke this whole flow on retries (a fresh browser
+            # context, e.g. after a container restart, always worked on
+            # the first try; a reused one that had seen a saved profile
+            # before did not, even with byte-verified-correct field
+            # content). Clearing storage before every attempt keeps every
+            # retry on the one flow this is actually built for.
+            await self._context.clear_cookies()
             _LOGGER.info("Navigating to login page")
             await page.goto(LOGIN_URL, wait_until="networkidle")
+            try:
+                await page.evaluate("() => { localStorage.clear(); sessionStorage.clear(); }")
+                await page.reload(wait_until="networkidle")
+            except Exception:
+                _LOGGER.exception("Could not clear local/session storage before login")
             # Flutter engine boot (CanvasKit/Skwasm download+init) takes a
             # few seconds even on a fast connection - no reliable DOM event
             # to wait on, so just give it a generous head start.
