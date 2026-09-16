@@ -53,24 +53,13 @@ class DlsBridgeClient:
             return []
         return data[0].get("foodDays", [])
 
-    async def async_get_cart(self) -> list[dict[str, Any]]:
-        async with self._session.get(f"{self._base_url}/cart", timeout=TIMEOUT) as resp:
-            if resp.status >= 400:
-                raise DlsApiError(f"cart request failed: HTTP {resp.status}")
-            data = await resp.json()
-        if not data:
-            return []
-        # Bridge returns the raw WAMP RESULT args/kwargs - the cart call's
-        # single result entry holds an "entries" list.
-        first = data[0] if isinstance(data, list) else data
-        return first.get("entries", []) if isinstance(first, dict) else []
-
     async def async_select_meal(
         self,
         delivery_date: str,
         meal_group_id: str,
         meal_id: str,
         dish_id: str | None = None,
+        planning_slot_id: str | None = None,
     ) -> None:
         payload = {
             "delivery_date": delivery_date,
@@ -79,6 +68,8 @@ class DlsBridgeClient:
         }
         if dish_id:
             payload["dish_id"] = dish_id
+        if planning_slot_id:
+            payload["planning_slot_id"] = planning_slot_id
         async with self._session.post(
             f"{self._base_url}/select_meal", json=payload, timeout=TIMEOUT
         ) as resp:

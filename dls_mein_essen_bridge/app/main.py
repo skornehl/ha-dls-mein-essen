@@ -310,6 +310,7 @@ class SelectMealRequest(BaseModel):
     meal_group_id: str
     meal_id: str
     dish_id: str | None = None
+    planning_slot_id: str | None = None
 
 
 class ClearMealRequest(BaseModel):
@@ -346,8 +347,13 @@ async def food_plan(monday: str) -> Any:
 
 @app.get("/cart")
 async def cart() -> Any:
-    """Current cart entries - used to figure out which dish (if any) is
-    currently selected for a given day/meal group."""
+    """Not actually used by the integration's coordinator (see its
+    coordinator.py) - the cart mechanism turned out to be disabled
+    server-side per a live capture (every add.caller.order.to.cart is
+    immediately binding), and current selection is read straight off
+    each dish's own `ordered` flag in the food plan instead, which is
+    simpler and confirmed authoritative. Left in as a diagnostic
+    endpoint."""
     assert bridge is not None
     return await bridge.call("biz.dls.get.caller.cart")
 
@@ -365,6 +371,8 @@ async def select_meal(req: SelectMealRequest) -> Any:
     }
     if req.dish_id:
         kwargs["dishId"] = req.dish_id
+    if req.planning_slot_id:
+        kwargs["planningSlotId"] = req.planning_slot_id
     return await bridge.call("biz.dls.add.caller.order.to.cart", kwargs=kwargs)
 
 

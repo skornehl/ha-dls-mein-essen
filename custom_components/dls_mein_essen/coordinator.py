@@ -19,11 +19,20 @@ _LOGGER = logging.getLogger(__name__)
 
 @dataclass
 class DlsMealOption:
-    """One choice within a meal group (e.g. one of several lunch options)."""
+    """One choice within a meal group (e.g. one of several lunch options).
+
+    `ordered` comes straight from the portal's own `dish.ordered` field -
+    confirmed live against the real account this is authoritative for
+    "is this the day/group's current selection", no cart cross-referencing
+    needed (the cart mechanism turned out to be disabled server-side
+    anyway, per a live network capture - see api.py)."""
 
     meal_id: str
     dish_id: str | None
+    planning_slot_id: str | None
     name: str
+    ordered: bool
+    orderable: bool
 
 
 @dataclass
@@ -36,7 +45,13 @@ class DlsMealGroup:
     name: str
     order_number: int
     options: list[DlsMealOption] = field(default_factory=list)
-    selected_dish_id: str | None = None
+
+    @property
+    def selected_dish_id(self) -> str | None:
+        for option in self.options:
+            if option.ordered:
+                return option.dish_id
+        return None
 
 
 def _monday_of(d: date_type) -> date_type:
@@ -50,8 +65,9 @@ def _text_from_description(description: dict) -> str:
 
 class DlsCoordinator(DataUpdateCoordinator[dict[date_type, list[DlsMealGroup]]]):
     """Polls the dls_mein_essen_bridge add-on for however many weeks cover
-    FEED_DAYS weekdays, plus the current cart, and merges them into a
-    date-keyed dict of meal groups with their current selection resolved."""
+    FEED_DAYS weekdays and merges them into a date-keyed dict of meal
+    groups, each option's current selection resolved from the portal's
+    own per-dish `ordered` flag."""
 
     def __init__(self, hass: HomeAssistant, entry: ConfigEntry) -> None:
         super().__init__(
@@ -81,19 +97,6 @@ class DlsCoordinator(DataUpdateCoordinator[dict[date_type, list[DlsMealGroup]]])
         return sorted(mondays)
 
     async def _async_update_data(self) -> dict[date_type, list[DlsMealGroup]]:
-        try:
-            cart_entries = await self.client.async_get_cart()
-        except DlsApiError as err:
-            raise UpdateFailed(f"Bridge nicht erreichbar: {err}") from err
-
-        # dish_id -> True for anything currently in the cart, keyed also by
-        # date to avoid cross-day collisions if a dish id is ever reused.
-        cart_dish_ids: set[str] = set()
-        for entry in cart_entries:
-            dish_id = entry.get("dishId") or entry.get("dish", {}).get("id")
-            if dish_id:
-                cart_dish_ids.add(dish_id)
-
         days: dict[date_type, list[DlsMealGroup]] = {}
         for monday in self._weeks_to_fetch():
             try:
@@ -109,25 +112,27 @@ class DlsCoordinator(DataUpdateCoordinator[dict[date_type, list[DlsMealGroup]]])
                 groups: list[DlsMealGroup] = []
                 for raw_group in food_day.get("mealsGroups", []):
                     options: list[DlsMealOption] = []
-                    selected_dish_id: str | None = None
                     for meal in raw_group.get("meals", []):
                         dish = meal.get("dish") or {}
-                        dish_id = dish.get("id")
                         name = _text_from_description(dish.get("dishDescription", {})) or meal.get(
                             "name", ""
                         )
                         options.append(
-                            DlsMealOption(meal_id=meal.get("id", ""), dish_id=dish_id, name=name)
+                            DlsMealOption(
+                                meal_id=meal.get("mealId", ""),
+                                dish_id=dish.get("id"),
+                                planning_slot_id=dish.get("planningSlotId"),
+                                name=name,
+                                ordered=bool(dish.get("ordered")),
+                                orderable=bool(dish.get("isOrderable")),
+                            )
                         )
-                        if dish_id and dish_id in cart_dish_ids:
-                            selected_dish_id = dish_id
                     groups.append(
                         DlsMealGroup(
                             group_id=raw_group.get("mealGroupId", ""),
                             name=raw_group.get("name", ""),
                             order_number=raw_group.get("orderNumber", 0),
                             options=options,
-                            selected_dish_id=selected_dish_id,
                         )
                     )
                 groups.sort(key=lambda g: g.order_number)
@@ -140,19 +145,25 @@ class DlsCoordinator(DataUpdateCoordinator[dict[date_type, list[DlsMealGroup]]])
     ) -> None:
         """`option=None` means "kein Essen" - clears whatever's currently
         selected for this group instead of adding a new one."""
+        currently_ordered = next((o for o in group.options if o.ordered), None)
         if option is None:
-            if group.selected_dish_id:
-                await self.client.async_clear_meal(group.selected_dish_id)
+            if currently_ordered and currently_ordered.dish_id:
+                await self.client.async_clear_meal(currently_ordered.dish_id)
         else:
             # The portal only allows one selection per group - clear
             # anything already picked first so we don't end up with two
             # entries for the same day/group.
-            if group.selected_dish_id and group.selected_dish_id != option.dish_id:
-                await self.client.async_clear_meal(group.selected_dish_id)
+            if (
+                currently_ordered
+                and currently_ordered.dish_id
+                and currently_ordered.dish_id != option.dish_id
+            ):
+                await self.client.async_clear_meal(currently_ordered.dish_id)
             await self.client.async_select_meal(
                 delivery_date=target_date.isoformat(),
                 meal_group_id=group.group_id,
                 meal_id=option.meal_id,
                 dish_id=option.dish_id,
+                planning_slot_id=option.planning_slot_id,
             )
         await self.async_request_refresh()
