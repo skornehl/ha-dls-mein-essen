@@ -6,6 +6,10 @@ doesn't talk to the portal directly (the WAMP-CRA login signature
 couldn't be reproduced outside a real browser). The bridge add-on runs
 that real browser and exposes a small REST API instead; this file is a
 thin wrapper around exactly that API, not around the portal itself.
+
+Read-only on purpose: this only asks for the food plan, never for the
+bridge's write endpoints (which still exist add-on-side but aren't
+called from here) - see const.py's module docstring for why.
 """
 from __future__ import annotations
 
@@ -52,33 +56,3 @@ class DlsBridgeClient:
         if not data:
             return []
         return data[0].get("foodDays", [])
-
-    async def async_select_meal(
-        self,
-        delivery_date: str,
-        meal_group_id: str,
-        meal_id: str,
-        dish_id: str | None = None,
-        planning_slot_id: str | None = None,
-    ) -> None:
-        payload = {
-            "delivery_date": delivery_date,
-            "meal_group_id": meal_group_id,
-            "meal_id": meal_id,
-        }
-        if dish_id:
-            payload["dish_id"] = dish_id
-        if planning_slot_id:
-            payload["planning_slot_id"] = planning_slot_id
-        async with self._session.post(
-            f"{self._base_url}/select_meal", json=payload, timeout=TIMEOUT
-        ) as resp:
-            if resp.status >= 400:
-                raise DlsApiError(f"select_meal request failed: HTTP {resp.status}")
-
-    async def async_clear_meal(self, dish_id: str) -> None:
-        async with self._session.post(
-            f"{self._base_url}/clear_meal", json={"dish_id": dish_id}, timeout=TIMEOUT
-        ) as resp:
-            if resp.status >= 400:
-                raise DlsApiError(f"clear_meal request failed: HTTP {resp.status}")

@@ -1,9 +1,5 @@
-"""Sensor platform for the DLS Mein Essen integration.
-
-Two convenience sensors (today / tomorrow), same idea as
-ha-blauart-kita's - state is the current selection (or "Kein Essen") for
-that day's first meal group, full option list as an attribute.
-"""
+"""Sensor platform for the DLS Mein Essen integration - just today/
+tomorrow's lunch registration status, read-only."""
 from __future__ import annotations
 
 from datetime import date, timedelta
@@ -14,8 +10,8 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN, OPTION_NONE
-from .coordinator import DlsCoordinator, DlsMealGroup
+from .const import DOMAIN
+from .coordinator import DlsCoordinator, DlsLunchDay
 
 
 async def async_setup_entry(
@@ -24,13 +20,13 @@ async def async_setup_entry(
     coordinator: DlsCoordinator = hass.data[DOMAIN][entry.entry_id]
     async_add_entities(
         [
-            DlsDaySensor(coordinator, entry, "today", 0),
-            DlsDaySensor(coordinator, entry, "tomorrow", 1),
+            DlsLunchSensor(coordinator, entry, "today", 0),
+            DlsLunchSensor(coordinator, entry, "tomorrow", 1),
         ]
     )
 
 
-class DlsDaySensor(CoordinatorEntity[DlsCoordinator], SensorEntity):
+class DlsLunchSensor(CoordinatorEntity[DlsCoordinator], SensorEntity):
     _attr_has_entity_name = True
 
     def __init__(self, coordinator: DlsCoordinator, entry: ConfigEntry, key: str, offset: int) -> None:
@@ -42,34 +38,19 @@ class DlsDaySensor(CoordinatorEntity[DlsCoordinator], SensorEntity):
         self._attr_icon = "mdi:food" if key == "today" else "mdi:food-outline"
 
     @property
-    def _groups(self) -> list[DlsMealGroup]:
-        return self.coordinator.data.get(date.today() + timedelta(days=self._offset), [])
+    def _day(self) -> DlsLunchDay | None:
+        return self.coordinator.data.get(date.today() + timedelta(days=self._offset))
 
     @property
     def native_value(self) -> str:
-        groups = self._groups
-        if not groups:
-            return OPTION_NONE
-        group = groups[0]
-        if not group.selected_dish_id:
-            return OPTION_NONE
-        for option in group.options:
-            if option.dish_id == group.selected_dish_id:
-                return option.name
-        return OPTION_NONE
+        day = self._day
+        if day is None or not day.meal_group_offered:
+            return "Kein Mittagessen"
+        return "Angemeldet" if day.registered else "Abgemeldet"
 
     @property
     def extra_state_attributes(self) -> dict:
-        groups = self._groups
-        return {
-            "meal_groups": [
-                {
-                    "name": g.name,
-                    "options": [o.name for o in g.options],
-                    "selected": next(
-                        (o.name for o in g.options if o.dish_id == g.selected_dish_id), OPTION_NONE
-                    ),
-                }
-                for g in groups
-            ]
-        }
+        day = self._day
+        if day is None:
+            return {}
+        return {"meal_name": day.meal_name}

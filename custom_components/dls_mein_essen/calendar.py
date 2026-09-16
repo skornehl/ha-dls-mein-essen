@@ -1,5 +1,5 @@
 """Calendar platform for the DLS Mein Essen integration - one all-day
-event per visible day, same idea as ha-blauart-kita's calendar.py."""
+event per visible day showing lunch registration status, read-only."""
 from __future__ import annotations
 
 from datetime import date, datetime, timedelta
@@ -10,8 +10,8 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN, OPTION_NONE
-from .coordinator import DlsCoordinator, DlsMealGroup
+from .const import DOMAIN
+from .coordinator import DlsCoordinator, DlsLunchDay
 
 
 async def async_setup_entry(
@@ -21,27 +21,14 @@ async def async_setup_entry(
     async_add_entities([DlsCalendar(coordinator, entry)])
 
 
-def _selected_name(group: DlsMealGroup) -> str:
-    if not group.selected_dish_id:
-        return OPTION_NONE
-    for option in group.options:
-        if option.dish_id == group.selected_dish_id:
-            return option.name
-    return OPTION_NONE
-
-
-def _event_for_day(day: date, groups: list[DlsMealGroup]) -> CalendarEvent | None:
-    if not groups:
+def _event_for_day(day: date, lunch: DlsLunchDay) -> CalendarEvent | None:
+    if not lunch.meal_group_offered:
         return None
-    lines = []
-    for group in groups:
-        status = _selected_name(group)
-        lines.append(f"{group.name}: {status}")
-        for option in group.options:
-            marker = "✅" if option.dish_id == group.selected_dish_id else "▫️"
-            lines.append(f"  {marker} {option.name}")
-    summary = " / ".join(f"{g.name}: {_selected_name(g)}" for g in groups)
-    return CalendarEvent(start=day, end=day + timedelta(days=1), summary=summary, description="\n".join(lines))
+    if lunch.registered:
+        summary = f"✅ Angemeldet ({lunch.meal_name})" if lunch.meal_name else "✅ Angemeldet"
+    else:
+        summary = "❌ Abgemeldet"
+    return CalendarEvent(start=day, end=day + timedelta(days=1), summary=summary)
 
 
 class DlsCalendar(CoordinatorEntity[DlsCoordinator], CalendarEntity):
@@ -57,9 +44,9 @@ class DlsCalendar(CoordinatorEntity[DlsCoordinator], CalendarEntity):
     @property
     def event(self) -> CalendarEvent | None:
         today = date.today()
-        for day, groups in self.coordinator.data.items():
+        for day, lunch in self.coordinator.data.items():
             if day >= today:
-                event = _event_for_day(day, groups)
+                event = _event_for_day(day, lunch)
                 if event is not None:
                     return event
         return None
@@ -68,9 +55,9 @@ class DlsCalendar(CoordinatorEntity[DlsCoordinator], CalendarEntity):
         self, hass: HomeAssistant, start_date: datetime, end_date: datetime
     ) -> list[CalendarEvent]:
         events = []
-        for day, groups in self.coordinator.data.items():
+        for day, lunch in self.coordinator.data.items():
             if start_date.date() <= day < end_date.date():
-                event = _event_for_day(day, groups)
+                event = _event_for_day(day, lunch)
                 if event is not None:
                     events.append(event)
         return events

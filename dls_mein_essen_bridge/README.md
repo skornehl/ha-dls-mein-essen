@@ -30,14 +30,31 @@ API for the integration to consume normally.
 The login-form automation tries Playwright's accessibility/semantic
 selectors first (robust against layout changes, but Flutter web's
 semantics tree isn't always reliably exposed), then falls back to a
-coordinate-based click+type sequence with hardcoded guesses. If both fail,
-check the add-on log and `/config/dls_login_debug.png` (written on any
-login failure) to see what the page actually looked like, and adjust
-`_fill_login_form`'s fallback coordinates in `app/main.py` accordingly.
+coordinate-based click+type sequence calibrated against this specific
+account's dialog layout. If it stops working, check the add-on log and
+`/config/dls_login_debug.png` (written on any login failure) to see what
+the page actually looked like, and adjust `_fill_login_form`'s fallback
+coordinates in `app/main.py` accordingly.
+
+One thing that cost real debugging time and is worth knowing: the app
+remembers the customer number as a "saved profile" in localStorage after
+the first visit to "Benutzer hinzufügen", and shows a *different* dialog
+on subsequent visits that this flow isn't built for - even with
+byte-verified-correct field content, login then fails. `login()` clears
+cookies/local/session storage before every single attempt specifically
+to avoid this, not just on first container start.
+
+## Read-only by design
+
+This only ever proxies one WAMP procedure (`get.caller.food.plan`) - no
+write path exists here at all. An earlier version also proxied
+`add.caller.order.to.cart`/`remove.caller.cart.entry` to let the
+integration change the real selection, but all that was ever really
+needed was a yes/no answer per day, so the write path (and the real-world
+risk of a bug placing a wrong order against a real child's account) was
+removed entirely.
 
 ## API
 
 - `GET /health` → `{"ready": bool}`
 - `GET /food_plan?monday=YYYY-MM-DD` → that week's food plan
-- `POST /select_meal` `{delivery_date, meal_group_id, meal_id, dish_id?}`
-- `POST /clear_meal` `{dish_id}`

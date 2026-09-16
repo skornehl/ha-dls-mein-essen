@@ -1,4 +1,9 @@
-"""Constants for the DLS Mein Essen integration."""
+"""Constants for the DLS Mein Essen integration.
+
+Deliberately read-only: this only reports whether Sophie is currently
+registered for lunch ("Mittag") each day - it does not change anything
+on the real portal. See coordinator.py/README for why.
+"""
 from __future__ import annotations
 
 DOMAIN = "dls_mein_essen"
@@ -15,8 +20,9 @@ DEFAULT_BRIDGE_URL = "http://630e259d-dls-mein-essen-bridge:8099"
 DEFAULT_SCAN_INTERVAL_SECONDS = 6 * 60 * 60  # 6h, same reasoning as
 # ha-blauart-kita - the menu doesn't change often enough to poll harder.
 
-# Same feed length as ha-blauart-kita (see FEED_DAYS there) - kept in
-# sync deliberately so both children's dashboards behave the same way.
+# How many days ahead to report on - same span as ha-blauart-kita's feed,
+# kept in sync deliberately even though there's no dashboard feed here
+# (just sensors/calendar) - 14 weekdays is a sensible window regardless.
 FEED_DAYS = 14
 
 GERMAN_WEEKDAYS = [
@@ -29,14 +35,5 @@ GERMAN_WEEKDAYS = [
     "Sonntag",
 ]
 
-# "Kein Essen" is always a valid choice alongside whatever the portal
-# actually offers that day - this is what a select entity's "off" state
-# maps to (see select.py).
-OPTION_NONE = "Kein Essen"
-
-# Max meal groups (Frühstück/Milch/Getränke/Mittag/...) handled per day -
-# confirmed live against the real account: 4 on a typical day. 5 gives one
-# spare slot; days with fewer groups just leave the extra slots
-# unavailable rather than entities being dynamically created/destroyed.
-MAX_MEAL_GROUPS_PER_DAY = 5
-
+# The one meal group this integration actually reports on.
+LUNCH_GROUP_NAME = "Mittag"

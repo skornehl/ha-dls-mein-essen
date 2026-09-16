@@ -12,9 +12,14 @@ add-on just rides along on that already-authenticated WebSocket to make
 its own additional WAMP calls (see wamp_hook.js) - no server-side attempt
 counter to worry about, no more guessing.
 
-This is deliberately NOT a general-purpose scraper: it only ever proxies
-the handful of WAMP procedures the dls_mein_essen integration needs
-(get.caller.food.plan, add.caller.order.to.cart, remove.caller.cart.entry).
+This is deliberately a pure, read-only crawler, not a general-purpose
+scraper or a controller: it only ever proxies one WAMP procedure
+(get.caller.food.plan) - there's no write path here at all. An earlier
+version also proxied add.caller.order.to.cart/remove.caller.cart.entry to
+let the integration change Sophie's actual meal selection, but all that
+was ever really needed was one yes/no answer per day ("is she registered
+for lunch"), so the write path (and the real-world risk of a bug placing
+a wrong order against a real child's account) was dropped entirely.
 """
 from __future__ import annotations
 
@@ -28,7 +33,6 @@ from typing import Any
 
 from fastapi import FastAPI, HTTPException
 from playwright.async_api import async_playwright, Browser, BrowserContext, Page
-from pydantic import BaseModel
 import uvicorn
 
 LOGIN_URL = "https://www.dls-gmbh.biz/mein-essen/#/login"
@@ -339,18 +343,6 @@ bridge: Bridge | None = None
 app = FastAPI(title="DLS Mein Essen Bridge")
 
 
-class SelectMealRequest(BaseModel):
-    delivery_date: str
-    meal_group_id: str
-    meal_id: str
-    dish_id: str | None = None
-    planning_slot_id: str | None = None
-
-
-class ClearMealRequest(BaseModel):
-    dish_id: str
-
-
 @app.on_event("startup")
 async def on_startup() -> None:
     global bridge
@@ -377,43 +369,6 @@ async def food_plan(monday: str) -> Any:
     """monday: ISO date (YYYY-MM-DD) of the Monday starting the week."""
     assert bridge is not None
     return await bridge.call("biz.dls.get.caller.food.plan", kwargs={"monday": monday})
-
-
-@app.get("/cart")
-async def cart() -> Any:
-    """Not actually used by the integration's coordinator (see its
-    coordinator.py) - the cart mechanism turned out to be disabled
-    server-side per a live capture (every add.caller.order.to.cart is
-    immediately binding), and current selection is read straight off
-    each dish's own `ordered` flag in the food plan instead, which is
-    simpler and confirmed authoritative. Left in as a diagnostic
-    endpoint."""
-    assert bridge is not None
-    return await bridge.call("biz.dls.get.caller.cart")
-
-
-@app.post("/select_meal")
-async def select_meal(req: SelectMealRequest) -> Any:
-    assert bridge is not None
-    kwargs = {
-        "deliveryDate": req.delivery_date,
-        "mealGroupId": req.meal_group_id,
-        "mealId": req.meal_id,
-        "amount": 1,
-        "device": "web",
-        "orderWithoutCart": True,
-    }
-    if req.dish_id:
-        kwargs["dishId"] = req.dish_id
-    if req.planning_slot_id:
-        kwargs["planningSlotId"] = req.planning_slot_id
-    return await bridge.call("biz.dls.add.caller.order.to.cart", kwargs=kwargs)
-
-
-@app.post("/clear_meal")
-async def clear_meal(req: ClearMealRequest) -> Any:
-    assert bridge is not None
-    return await bridge.call("biz.dls.remove.caller.cart.entry", kwargs={"dishId": req.dish_id})
 
 
 if __name__ == "__main__":
