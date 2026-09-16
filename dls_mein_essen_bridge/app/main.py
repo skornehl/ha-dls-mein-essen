@@ -175,25 +175,37 @@ class Bridge:
         await self._debug_screenshot(page, "form_debug")
 
         try:
+            # Confirmed via debug screenshots: this IS one combined
+            # "Benutzer hinzufügen" dialog (Kundennummer + Passwort/Pin +
+            # LOGIN button), not a two-step wizard - both fields showed
+            # correctly filled, yet the real portal still aborted with
+            # "Authentication Failed". Switched keystroke-by-keystroke
+            # .type() to .fill() - sets the value directly instead of
+            # simulating individual keystrokes, ruling out any per-
+            # character timing/event race as the cause.
             number_field = page.get_by_role(
                 "textbox", name=re.compile("Kundennummer|Customer number", re.I)
             )
-            await number_field.click(timeout=5000)
-            await page.keyboard.type(self.customer_number, delay=30)
+            await number_field.fill(self.customer_number)
             await self._debug_screenshot(page, "step3_after_number_typed")
+            entered_number = await number_field.input_value()
+            _LOGGER.info(
+                "Kundennummer field now reads %r (expected %r, match=%s)",
+                entered_number,
+                self.customer_number,
+                entered_number == self.customer_number,
+            )
 
-            # The real portal aborted with "Authentication Failed" last
-            # time despite this whole block reporting success - the
-            # customer-number tile then showed up as a saved profile
-            # afterwards, suggesting this might actually be a two-step
-            # wizard (number, THEN a separately-appearing password field)
-            # rather than one combined form, and the "password field"
-            # locator below matched something else entirely. Screenshot
-            # here too so that's visible either way.
             password_field = page.get_by_role("textbox", name=re.compile("Passwort|Password", re.I))
-            await password_field.click(timeout=5000)
-            await page.keyboard.type(self.password, delay=30)
+            await password_field.fill(self.password)
             await self._debug_screenshot(page, "step4_after_password_typed")
+            entered_password = await password_field.input_value()
+            _LOGGER.info(
+                "Passwort field now has length %d (expected %d, match=%s)",
+                len(entered_password),
+                len(self.password),
+                entered_password == self.password,
+            )
 
             login_button = page.get_by_role(
                 "button", name=re.compile("Anmelden|Einloggen|Login|Log ?in|Sign ?in", re.I)
