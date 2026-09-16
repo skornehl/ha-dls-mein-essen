@@ -146,6 +146,7 @@ class Bridge:
         # Sidebar "Login" nav item - just gets to a "Profiles" screen, not
         # a form (see below), but does need clicking first.
         await self._click_text_or_coords(page, r"^(Login|Anmelden)$", (100, 114), "Login nav item")
+        await self._debug_screenshot(page, "step1_after_login_click")
 
         # The "Profiles" screen's "Benutzer hinzufügen"/"Add user" tile
         # ("Login mit Kundennummer und Passwort") is what actually gets to
@@ -157,16 +158,13 @@ class Bridge:
             (740, 756),
             "'Benutzer hinzufügen' tile",
         )
+        await self._debug_screenshot(page, "step2_after_adduser_click")
 
         # Always capture what the form actually looks like right before
         # attempting to fill it in - purely for calibrating the
         # coordinate fallback below across iterations, regardless of
         # whether this attempt ultimately succeeds.
-        try:
-            os.makedirs("/config", exist_ok=True)
-            await page.screenshot(path="/config/dls_form_debug.png")
-        except Exception:
-            _LOGGER.exception("Could not save pre-fill debug screenshot")
+        await self._debug_screenshot(page, "form_debug")
 
         try:
             number_field = page.get_by_role(
@@ -222,7 +220,14 @@ class Bridge:
                 _LOGGER.info("Clicked %s via coordinates %s", description, coords)
             except Exception:
                 _LOGGER.exception("Coordinate click for %s also failed", description)
-        await page.wait_for_timeout(1500)
+        await page.wait_for_timeout(2500)
+
+    async def _debug_screenshot(self, page: Page, tag: str) -> None:
+        try:
+            os.makedirs("/config", exist_ok=True)
+            await page.screenshot(path=f"/config/dls_{tag}.png")
+        except Exception:
+            _LOGGER.exception("Could not save debug screenshot (%s)", tag)
 
     async def _save_debug_screenshot(self, page: Page, reason: str) -> None:
         try:
