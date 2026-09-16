@@ -196,7 +196,17 @@ class Bridge:
                 entered_number == self.customer_number,
             )
 
-            password_field = page.get_by_role("textbox", name=re.compile("Passwort|Password", re.I))
+            # The diagnostic logging above caught this: the previous
+            # get_by_role("textbox", name=~"Passwort") locator resolved
+            # to *something* (fill() didn't error) but left the field
+            # empty - almost certainly matched a decoy, e.g. the
+            # "Passwort merken (bis Logout)" checkbox's label rather than
+            # the actual input. Tab from the number field (whose fill we
+            # already confirmed lands correctly) instead of searching
+            # again - matches normal form flow and sidesteps the ambiguous
+            # role match entirely.
+            await page.keyboard.press("Tab")
+            password_field = page.locator(":focus")
             await password_field.fill(self.password)
             await self._debug_screenshot(page, "step4_after_password_typed")
             entered_password = await password_field.input_value()
