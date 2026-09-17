@@ -21,6 +21,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
+from homeassistant.util import dt as dt_util
 
 from .api import DlsApiError, DlsBridgeClient
 from .const import CONF_BRIDGE_URL, DEFAULT_SCAN_INTERVAL_SECONDS, DOMAIN, FEED_DAYS, LUNCH_GROUP_NAME
@@ -93,7 +94,16 @@ class DlsCoordinator(DataUpdateCoordinator[dict[date_type, DlsLunchDay]]):
 
             for food_day in food_days:
                 try:
-                    day_date = datetime.fromisoformat(food_day["deliveryDate"]).date()
+                    # deliveryDate comes back as a UTC instant representing
+                    # local midnight of the intended day (e.g.
+                    # "2026-09-13T22:00:00+00:00" for 2026-09-14 in Berlin
+                    # time) - a naive `.date()` on the raw UTC value reads
+                    # off the PREVIOUS day, silently shifting every day's
+                    # food data one day early (confirmed live 2026-09-17:
+                    # tomorrow's dish showed up under today). Must convert
+                    # to local time first.
+                    raw = datetime.fromisoformat(food_day["deliveryDate"])
+                    day_date = dt_util.as_local(raw).date()
                 except (KeyError, ValueError):
                     continue
 
