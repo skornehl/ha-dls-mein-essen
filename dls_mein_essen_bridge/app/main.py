@@ -40,6 +40,16 @@ WAMP_HOOK_JS = (Path(__file__).parent / "wamp_hook.js").read_text()
 DEBUG_SCREENSHOT_PATH = "/config/dls_login_debug.png"
 OPTIONS_PATH = "/data/options.json"
 
+# The login flow's coordinate fallback is calibrated against this size.
+LOGIN_VIEWPORT = {"width": 1280, "height": 900}
+# Once logged in, nobody looks at the page any more - only the WAMP
+# WebSocket underneath matters. But the Flutter app keeps painting its
+# (full-size) canvas through Chromium's software GPU, measured at ~90% of
+# a CPU core around the clock (the login page alone idles at ~1%). A tiny
+# viewport shrinks that paint work to almost nothing without touching the
+# JS/WebSocket side. login() restores LOGIN_VIEWPORT before every attempt.
+IDLE_VIEWPORT = {"width": 64, "height": 64}
+
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 _LOGGER = logging.getLogger("dls_bridge")
 
@@ -66,7 +76,7 @@ class Bridge:
         self._playwright = await async_playwright().start()
         self._browser = await self._playwright.chromium.launch(headless=True)
         self._context = await self._browser.new_context(
-            viewport={"width": 1280, "height": 900},
+            viewport=LOGIN_VIEWPORT,
             locale="de-DE",
             extra_http_headers={"Accept-Language": "de-DE,de;q=0.9"},
         )
@@ -107,6 +117,7 @@ class Bridge:
             # before did not, even with byte-verified-correct field
             # content). Clearing storage before every attempt keeps every
             # retry on the one flow this is actually built for.
+            await page.set_viewport_size(LOGIN_VIEWPORT)
             await self._context.clear_cookies()
             _LOGGER.info("Navigating to login page")
             await page.goto(LOGIN_URL, wait_until="networkidle")
@@ -130,6 +141,10 @@ class Bridge:
                 if ready:
                     _LOGGER.info("Login successful (WAMP WELCOME received)")
                     self.ready = True
+                    try:
+                        await page.set_viewport_size(IDLE_VIEWPORT)
+                    except Exception:
+                        _LOGGER.exception("Could not shrink viewport after login")
                     return True
                 error = await page.evaluate("() => window.__wampLastError")
                 if error:
