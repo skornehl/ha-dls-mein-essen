@@ -93,11 +93,19 @@ class Bridge:
                 if self.page is None:
                     await asyncio.sleep(10)
                     continue
+                if self._lock.locked():
+                    # A login (e.g. the initial one from on_startup) is in
+                    # progress - don't queue a second full login behind it.
+                    await asyncio.sleep(30)
+                    continue
                 ready = await self.page.evaluate("() => window.__wampReady === true")
+                # Report the real state: a dropped session must turn
+                # /health and call() to "not logged in" (503), not keep
+                # claiming ready until the re-login finishes.
+                self.ready = ready
                 if not ready:
                     _LOGGER.warning("WAMP session not ready, (re)logging in")
                     await self.login()
-                self.ready = ready or self.ready
             except Exception:
                 _LOGGER.exception("Watchdog iteration failed")
             await asyncio.sleep(30)
@@ -106,6 +114,15 @@ class Bridge:
         async with self._lock:
             page = self.page
             assert page is not None
+
+            # Someone else may have logged in while we waited for the lock.
+            try:
+                if await page.evaluate("() => window.__wampReady === true"):
+                    self.ready = True
+                    return True
+            except Exception:
+                pass
+            self.ready = False
 
             # Confirmed live: after one login attempt, the app remembers
             # the customer number as a "saved profile" (persisted in
