@@ -28,6 +28,7 @@ import json
 import logging
 import os
 import re
+import time
 from pathlib import Path
 from typing import Any
 
@@ -50,6 +51,10 @@ LOGIN_VIEWPORT = {"width": 1280, "height": 900}
 # JS/WebSocket side. login() restores LOGIN_VIEWPORT before every attempt.
 IDLE_VIEWPORT = {"width": 64, "height": 64}
 
+# Wait 1, 2, 4, 8, 16, then 30 minutes between failed login attempts.
+LOGIN_BACKOFF_BASE_S = 60
+LOGIN_BACKOFF_MAX_S = 30 * 60
+
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 _LOGGER = logging.getLogger("dls_bridge")
 
@@ -71,6 +76,10 @@ class Bridge:
         self.page: Page | None = None
         self._lock = asyncio.Lock()
         self.ready = False
+        # Backoff after failed logins: retrying every minute with wrong or
+        # temporarily rejected credentials risks locking the DLS account.
+        self._failures = 0
+        self._next_attempt = 0.0
 
     async def start(self) -> None:
         self._playwright = await async_playwright().start()
@@ -104,13 +113,40 @@ class Bridge:
                 # claiming ready until the re-login finishes.
                 self.ready = ready
                 if not ready:
-                    _LOGGER.warning("WAMP session not ready, (re)logging in")
-                    await self.login()
+                    wait = self._next_attempt - time.monotonic()
+                    if wait > 0:
+                        _LOGGER.debug("Login backoff, next attempt in %.0f s", wait)
+                    else:
+                        _LOGGER.warning("WAMP session not ready, (re)logging in")
+                        await self.login()
             except Exception:
                 _LOGGER.exception("Watchdog iteration failed")
             await asyncio.sleep(30)
 
+    def _note_login(self, ok: bool) -> None:
+        if ok:
+            if self._failures:
+                _LOGGER.info("Login works again after %d failed attempt(s)", self._failures)
+            self._failures = 0
+            self._next_attempt = 0.0
+            return
+        self._failures += 1
+        delay = min(LOGIN_BACKOFF_BASE_S * 2 ** (self._failures - 1), LOGIN_BACKOFF_MAX_S)
+        self._next_attempt = time.monotonic() + delay
+        _LOGGER.warning(
+            "Login failed (%d in a row) - next attempt in %d min", self._failures, delay // 60
+        )
+
     async def login(self) -> bool:
+        try:
+            ok = await self._login_once()
+        except Exception:
+            self._note_login(False)
+            raise
+        self._note_login(ok)
+        return ok
+
+    async def _login_once(self) -> bool:
         async with self._lock:
             page = self.page
             assert page is not None
