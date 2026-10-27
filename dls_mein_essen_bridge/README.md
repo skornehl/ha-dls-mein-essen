@@ -1,5 +1,10 @@
 # DLS Mein Essen Bridge
 
+> **Moved:** this add-on is now published from
+> [skornehl/ha-addons](https://github.com/skornehl/ha-addons). This copy
+> gets no further updates - see the repository README for switching.
+
+
 Home Assistant add-on. Not useful on its own - it's the backend the
 `dls_mein_essen` custom integration talks to over `http://<addon>:8099`.
 

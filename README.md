@@ -17,7 +17,8 @@ add-on's changelog.)
 
 ## Two parts
 
-- **`dls_mein_essen_bridge`** (Home Assistant add-on) - the portal is a
+- **DLS Mein Essen Bridge** (Home Assistant add-on, published from
+  [skornehl/ha-addons](https://github.com/skornehl/ha-addons)) - the portal is a
   compiled Flutter web app that talks WAMP-over-WebSocket, not REST, and
   its login (WAMP-CRA: PBKDF2 + HMAC-SHA256 over a server challenge)
   couldn't be reproduced from a hand-written client despite having a
@@ -29,8 +30,9 @@ add-on's changelog.)
 - **`dls_mein_essen`** (this HACS integration) - talks to the bridge
   add-on's HTTP API, not to the portal directly.
 
-Install both: the add-on (add this repo as an add-on repository) and the
-integration (add this repo as a HACS custom repository).
+Install both: the add-on (add `https://github.com/skornehl/ha-addons` as
+an add-on repository) and the integration (add this repo as a HACS custom
+repository).
 
 ## Features
 
@@ -45,12 +47,24 @@ integration (add this repo as a HACS custom repository).
 ## Installation
 
 1. Add-on: Settings → Add-ons → Add-on Store → ⋮ → Repositories → add
-   `https://github.com/skornehl/ha-dls-mein-essen`, install "DLS Mein
-   Essen Bridge", configure your DLS customer number/password, start it.
-   Check its log the first time - see `dls_mein_essen_bridge/README.md`
-   if the login automation needs tuning against the real page layout.
+   `https://github.com/skornehl/ha-addons`, install "DLS Mein Essen
+   Bridge", configure your DLS customer number/password, start it. Check
+   its log the first time - see the add-on's README if the login
+   automation needs tuning against the real page layout.
 2. Integration: via [HACS](https://hacs.xyz/), add this repository as a
    custom repository (category: Integration), install "DLS Mein Essen",
    then add it in Settings → Devices & Services (the bridge add-on's URL
-   defaults to its Supervisor-assigned hostname - see const.py if it
-   needs adjusting for a different install).
+   defaults to its Supervisor-assigned hostname
+   `http://6dc2c37d-dls-mein-essen-bridge:8099`; **Reconfigure** on the
+   entry changes it later).
+
+## Moving from the old add-on
+
+Up to bridge 0.2.3 the add-on was published from this repository. It now
+lives in [skornehl/ha-addons](https://github.com/skornehl/ha-addons); the
+copy in `dls_mein_essen_bridge/` here gets no further updates. To switch:
+add the new add-on repository, install the bridge from there and enter the
+same credentials, stop the old bridge, then open the integration and choose
+**Reconfigure** - the default URL is the new bridge
+(`http://6dc2c37d-dls-mein-essen-bridge:8099`). Entities and history stay.
+Finally uninstall the old add-on.
