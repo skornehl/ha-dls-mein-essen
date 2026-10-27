@@ -5,6 +5,13 @@
         "data": {
           "bridge_url": "Bridge add-on URL"
         }
+      },
+      "reconfigure": {
+        "title": "Change bridge add-on",
+        "description": "New bridge URL. The add-on from the repository skornehl/ha-addons is reachable at {default_url}.",
+        "data": {
+          "bridge_url": "Bridge add-on URL"
+        }
       }
     },
     "error": {
@@ -12,7 +19,8 @@
       "unknown": "Unexpected error"
     },
     "abort": {
-      "already_configured": "This bridge is already configured"
+      "already_configured": "This bridge is already configured",
+      "reconfigure_successful": "Bridge URL updated"
     }
   },
   "entity": {

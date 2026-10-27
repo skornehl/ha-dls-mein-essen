@@ -9,7 +9,10 @@ from __future__ import annotations
 DOMAIN = "dls_mein_essen"
 
 CONF_BRIDGE_URL = "bridge_url"
-DEFAULT_BRIDGE_URL = "http://630e259d-dls-mein-essen-bridge:8099"
+# The bridge add-on is published from skornehl/ha-addons; the Supervisor
+# prefixes its hostname with sha1(repository URL)[:8] = 6dc2c37d. (Before
+# 0.6.0 it came from this repository: 630e259d.)
+DEFAULT_BRIDGE_URL = "http://6dc2c37d-dls-mein-essen-bridge:8099"
 # The hash prefix is specific to how the bridge add-on's repository was
 # installed on this instance (Supervisor generates it from the repo URL
 # for local/custom-repository add-ons, unlike official add-ons' plain

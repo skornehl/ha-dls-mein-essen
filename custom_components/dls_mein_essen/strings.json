@@ -5,6 +5,13 @@
         "data": {
           "bridge_url": "Bridge-Add-on URL"
         }
+      },
+      "reconfigure": {
+        "title": "Change bridge add-on",
+        "description": "New bridge URL. The add-on from the repository skornehl/ha-addons is reachable at {default_url}.",
+        "data": {
+          "bridge_url": "Bridge-Add-on URL"
+        }
       }
     },
     "error": {
@@ -12,19 +19,28 @@
       "unknown": "Unerwarteter Fehler"
     },
     "abort": {
-      "already_configured": "Diese Bridge ist bereits eingerichtet"
+      "already_configured": "Diese Bridge ist bereits eingerichtet",
+      "reconfigure_successful": "Bridge URL updated"
     }
   },
   "entity": {
     "button": {
-      "refresh": { "name": "Aktualisieren" }
+      "refresh": {
+        "name": "Aktualisieren"
+      }
     },
     "calendar": {
-      "plan": { "name": "Speiseplan" }
+      "plan": {
+        "name": "Speiseplan"
+      }
     },
     "sensor": {
-      "today": { "name": "Heute" },
-      "tomorrow": { "name": "Morgen" }
+      "today": {
+        "name": "Heute"
+      },
+      "tomorrow": {
+        "name": "Morgen"
+      }
     }
   }
 }
