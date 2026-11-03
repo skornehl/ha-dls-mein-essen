@@ -26,6 +26,13 @@ def _event_for_day(day: date, lunch: DlsLunchDay) -> CalendarEvent | None:
         return None
     if lunch.registered:
         summary = f"✅ Angemeldet ({lunch.meal_name})" if lunch.meal_name else "✅ Angemeldet"
+    elif lunch.in_cart:
+        # Ticked in the portal but never checked out - not an order.
+        summary = (
+            f"🛒 Im Warenkorb, nicht bestellt ({lunch.cart_meal_name})"
+            if lunch.cart_meal_name
+            else "🛒 Im Warenkorb, nicht bestellt"
+        )
     else:
         summary = "❌ Abgemeldet"
     return CalendarEvent(start=day, end=day + timedelta(days=1), summary=summary)

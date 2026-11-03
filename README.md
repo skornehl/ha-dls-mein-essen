@@ -37,10 +37,14 @@ repository).
 ## Features
 
 - **Calendar entity** - one event per visible weekday: registered
-  (✅, with the meal name) or not (❌). Days with no "Mittag" group at
-  all (some Fridays, confirmed live) don't get an event.
-- **Today / Tomorrow sensors** - "Angemeldet" / "Abgemeldet" / "Kein
-  Mittagessen".
+  (✅, with the meal name), ticked but never checked out (🛒) or not
+  registered (❌). Days with no "Mittag" group at all (some Fridays,
+  confirmed live) don't get an event.
+- **Today / Tomorrow sensors** - "Angemeldet" / "Abgemeldet" / "Im
+  Warenkorb" / "Kein Mittagessen". "Im Warenkorb" means a dish is ticked
+  in the portal (cart icon on the tick, "Items in cart") but the cart was
+  never checked out, so there is **no** order. Attributes `in_cart` and
+  `cart_meal_name` carry the details.
 - **Refresh button** - forces an immediate re-check instead of waiting
   out the 6h poll interval.
 
