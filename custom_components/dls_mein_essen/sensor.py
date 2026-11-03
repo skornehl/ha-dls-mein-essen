@@ -6,7 +6,7 @@ mirroring ha-blauart-kita's switch.py feed exactly (same weekday-skip
 helper, same naming, same lack of `_attr_device_info` to avoid that HA
 version's name-prefix quirk) so both children's dashboard tabs can use
 the identical vertical-stack-per-day card layout. Read-only: state is
-just "Angemeldet"/"Abgemeldet"/"Kein Mittagessen", there's nothing to
+just "Angemeldet"/"Abgemeldet"/"Im Warenkorb"/"Kein Mittagessen", there's nothing to
 toggle here (see const.py's module docstring for why).
 """
 from __future__ import annotations
@@ -19,7 +19,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN, FEED_DAYS, GERMAN_WEEKDAYS
+from .const import DOMAIN, FEED_DAYS, GERMAN_WEEKDAYS, STATUS_NO_LUNCH
 from .coordinator import DlsCoordinator, DlsLunchDay
 
 
@@ -80,16 +80,18 @@ class DlsDaySensor(CoordinatorEntity[DlsCoordinator], SensorEntity):
     @property
     def native_value(self) -> str:
         lunch = self._lunch
-        if lunch is None or not lunch.meal_group_offered:
-            return "Kein Mittagessen"
-        return "Angemeldet" if lunch.registered else "Abgemeldet"
+        return STATUS_NO_LUNCH if lunch is None else lunch.status
 
     @property
     def extra_state_attributes(self) -> dict:
         lunch = self._lunch
         if lunch is None:
             return {}
-        return {"meal_name": lunch.meal_name}
+        return {
+            "meal_name": lunch.meal_name,
+            "in_cart": lunch.in_cart,
+            "cart_meal_name": lunch.cart_meal_name,
+        }
 
 
 class DlsTodaySensor(CoordinatorEntity[DlsCoordinator], SensorEntity):
@@ -113,13 +115,15 @@ class DlsTodaySensor(CoordinatorEntity[DlsCoordinator], SensorEntity):
     @property
     def native_value(self) -> str:
         lunch = self._lunch
-        if lunch is None or not lunch.meal_group_offered:
-            return "Kein Mittagessen"
-        return "Angemeldet" if lunch.registered else "Abgemeldet"
+        return STATUS_NO_LUNCH if lunch is None else lunch.status
 
     @property
     def extra_state_attributes(self) -> dict:
         lunch = self._lunch
         if lunch is None:
             return {}
-        return {"meal_name": lunch.meal_name}
+        return {
+            "meal_name": lunch.meal_name,
+            "in_cart": lunch.in_cart,
+            "cart_meal_name": lunch.cart_meal_name,
+        }
