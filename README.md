@@ -62,7 +62,7 @@ repository).
 
 Up to bridge 0.2.3 the add-on was published from this repository. It now
 lives in [skornehl/ha-addons](https://github.com/skornehl/ha-addons); the
-copy in `dls_mein_essen_bridge/` here gets no further updates. To switch:
+old copy has been removed from this repository. To switch:
 add the new add-on repository, install the bridge from there and enter the
 same credentials, stop the old bridge, then open the integration and choose
 **Reconfigure** - the default URL is the new bridge
