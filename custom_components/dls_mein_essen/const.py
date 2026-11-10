@@ -40,3 +40,9 @@ GERMAN_WEEKDAYS = [
 
 # The one meal group this integration actually reports on.
 LUNCH_GROUP_NAME = "Mittag"
+
+# Sensor states (German UI, used as-is by dashboards and automations).
+STATUS_REGISTERED = "Angemeldet"
+STATUS_NOT_REGISTERED = "Abgemeldet"
+STATUS_IN_CART = "Im Warenkorb"
+STATUS_NO_LUNCH = "Kein Mittagessen"

@@ -24,7 +24,17 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, Upda
 from homeassistant.util import dt as dt_util
 
 from .api import DlsApiError, DlsBridgeClient
-from .const import CONF_BRIDGE_URL, DEFAULT_SCAN_INTERVAL_SECONDS, DOMAIN, FEED_DAYS, LUNCH_GROUP_NAME
+from .const import (
+    CONF_BRIDGE_URL,
+    DEFAULT_SCAN_INTERVAL_SECONDS,
+    DOMAIN,
+    FEED_DAYS,
+    LUNCH_GROUP_NAME,
+    STATUS_IN_CART,
+    STATUS_NO_LUNCH,
+    STATUS_NOT_REGISTERED,
+    STATUS_REGISTERED,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -39,6 +49,23 @@ class DlsLunchDay:
     meal_group_offered: bool
     registered: bool
     meal_name: str | None
+    # A dish sits in the portal's cart but was never checked out, so it is
+    # NOT ordered (confirmed live 2026-11-03: `ordered: false`,
+    # `inCartForOrder: true`, the app shows "2 Items in cart" and a small
+    # cart icon on the tick). Reported separately so a forgotten checkout
+    # is visible instead of looking like a plain "Abgemeldet".
+    in_cart: bool = False
+    cart_meal_name: str | None = None
+
+    @property
+    def status(self) -> str:
+        if not self.meal_group_offered:
+            return STATUS_NO_LUNCH
+        if self.registered:
+            return STATUS_REGISTERED
+        if self.in_cart:
+            return STATUS_IN_CART
+        return STATUS_NOT_REGISTERED
 
 
 def _monday_of(d: date_type) -> date_type:
@@ -53,9 +80,10 @@ def _text_from_description(description: dict) -> str:
 class DlsCoordinator(DataUpdateCoordinator[dict[date_type, DlsLunchDay]]):
     """Polls the dls_mein_essen_bridge add-on for however many weeks cover
     FEED_DAYS weekdays and extracts just the "Mittag" group's current
-    `dish.ordered` status per day - confirmed live to be authoritative
-    for "is this the day's current selection", no cart cross-referencing
-    needed (the cart mechanism turned out to be disabled server-side)."""
+    `dish.ordered` status per day - authoritative for "is this the day's
+    current selection". Since at least 2026-11-02 the portal's cart is
+    active again: a dish can be ticked (`inCartForOrder`) without being
+    checked out, which is tracked separately as `in_cart`."""
 
     def __init__(self, hass: HomeAssistant, entry: ConfigEntry) -> None:
         super().__init__(
@@ -123,16 +151,25 @@ class DlsCoordinator(DataUpdateCoordinator[dict[date_type, DlsLunchDay]]):
 
                 registered = False
                 meal_name: str | None = None
+                in_cart = False
+                cart_meal_name: str | None = None
                 for meal in lunch_group.get("meals", []):
                     dish = meal.get("dish") or {}
+                    name = _text_from_description(
+                        dish.get("dishDescription", {})
+                    ) or meal.get("name", "")
                     if dish.get("ordered"):
                         registered = True
-                        meal_name = _text_from_description(
-                            dish.get("dishDescription", {})
-                        ) or meal.get("name", "")
-                        break
+                        meal_name = name
+                    elif dish.get("inCartForOrder") and not in_cart:
+                        in_cart = True
+                        cart_meal_name = name
                 days[day_date] = DlsLunchDay(
-                    meal_group_offered=True, registered=registered, meal_name=meal_name
+                    meal_group_offered=True,
+                    registered=registered,
+                    meal_name=meal_name,
+                    in_cart=in_cart,
+                    cart_meal_name=cart_meal_name,
                 )
 
         return dict(sorted(days.items()))
